@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-aware-scheduler
+  namespace: load-aware-scheduler
+  labels:
+    app.kubernetes.io/name: load-aware-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: load-aware-scheduler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: load-aware-scheduler
+    spec:
+      serviceAccountName: load-aware-scheduler
+      containers:
+        - name: scheduler
+          image: 10.14.2.6:8091/bigdata/load-aware-scheduler:v0.1.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SCHEDULER_NAME
+              value: load-aware-scheduler
+            - name: CACHE_REFRESH_SECONDS
+              value: "60"
+            - name: POLL_INTERVAL_SECONDS
+              value: "3"
+            - name: CPU_HARD_LIMIT_PCT
+              value: "90"
+            - name: MEMORY_HARD_LIMIT_PCT
+              value: "90"
+            - name: CPU_TARGET_LIMIT_PCT
+              value: "80"
+            - name: MEMORY_TARGET_LIMIT_PCT
+              value: "85"
+            - name: CPU_LIMIT_ESTIMATE_RATIO
+              value: "0.50"
+            - name: MEMORY_LIMIT_ESTIMATE_RATIO
+              value: "0.70"
+            - name: USE_GENERIC_PROFILE_FOR_NEW_APPS
+              value: "true"
+            - name: STRICT_UNSUPPORTED_CONSTRAINTS
+              value: "false"
+            - name: LOG_NODE_SCORES
+              value: "true"
+            # 0 means print all candidate nodes. Use a smaller number in large clusters.
+            - name: LOG_NODE_SCORE_LIMIT
+              value: "0"
+            - name: LOG_REJECTED_NODES
+              value: "false"
+            - name: DASHBOARD_ENABLED
+              value: "true"
+            - name: DASHBOARD_PORT
+              value: "8080"
+            - name: DASHBOARD_HISTORY_SIZE
+              value: "50"
+            # Set this when Prometheus is available. Without it, the scheduler
+            # falls back to metrics.k8s.io from metrics-server.
+            # - name: PROMETHEUS_URL
+            #   value: http://prometheus-operated.monitoring.svc:9090
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 1
+              memory: 512Mi
