@@ -41,7 +41,7 @@ class ScheduleHistory:
             "app_id": identity.app_id,
             "selected_node": selected_node,
             "status": status,
-            "candidates": [node_score_json(score, identity.app_id) for score in scores],
+            "candidates": [node_score_json(score, identity) for score in scores],
             "rejected": [
                 {"node": node, "reasons": reasons}
                 for node, reasons in sorted(rejected.items())
@@ -186,8 +186,9 @@ def nodes_json(snapshot: ClusterSnapshot) -> List[dict]:
     return nodes
 
 
-def node_score_json(score: NodeScore, app_id: str) -> dict:
+def node_score_json(score: NodeScore, identity: object) -> dict:
     node = score.node
+    workload_role_key = (identity.workload, identity.role)
     return {
         "node": node.name,
         "score": round(score.score, 2),
@@ -197,7 +198,8 @@ def node_score_json(score: NodeScore, app_id: str) -> dict:
         "actual_memory_pct": round_or_none(node.actual_memory_pct),
         "request_cpu_pct": round(node.request_cpu_pct(), 2),
         "request_memory_pct": round(node.request_memory_pct(), 2),
-        "app_count": node.app_counts.get(app_id, 0),
+        "app_count": node.app_counts.get(identity.app_id, 0),
+        "workload_role_count": node.workload_role_counts.get(workload_role_key, 0),
         "reasons": score.reasons,
     }
 
@@ -418,7 +420,7 @@ DASHBOARD_HTML = """<!doctype html>
     }
     .candidate-row {
       display: grid;
-      grid-template-columns: 24px minmax(130px, 1fr) 78px 120px 120px 72px;
+      grid-template-columns: 24px minmax(130px, 1fr) 78px 120px 120px 72px 72px;
       gap: 8px;
       align-items: center;
       margin-bottom: 7px;
@@ -443,7 +445,7 @@ DASHBOARD_HTML = """<!doctype html>
       .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .schedule { grid-template-columns: 1fr; }
       .candidate-row {
-        grid-template-columns: 24px minmax(120px, 1fr) 66px 92px 92px 62px;
+        grid-template-columns: 24px minmax(120px, 1fr) 66px 92px 92px 62px 62px;
       }
     }
   </style>
@@ -587,6 +589,7 @@ DASHBOARD_HTML = """<!doctype html>
               <span>CPU ${pct(c.estimated_cpu_pct)}</span>
       <span>Mem ${pct(c.estimated_memory_pct)}</span>
       <span>App ${c.app_count}</span>
+      <span>Role ${c.workload_role_count}</span>
             </div>
           `).join("")}</div>
         </div>

@@ -33,6 +33,13 @@ class LoadAwareScorer:
         app_counts = [node.app_counts.get(identity.app_id, 0) for node in snapshot.nodes.values()]
         min_app_count = min(app_counts) if app_counts else 0
         max_app_count = max(app_counts) if app_counts else 0
+        workload_role_key = (identity.workload, identity.role)
+        workload_role_counts = [
+            node.workload_role_counts.get(workload_role_key, 0)
+            for node in snapshot.nodes.values()
+        ]
+        min_workload_role_count = min(workload_role_counts) if workload_role_counts else 0
+        max_workload_role_count = max(workload_role_counts) if workload_role_counts else 0
 
         for node in snapshot.nodes.values():
             ok, reasons = node_matches_required_constraints(
@@ -78,6 +85,9 @@ class LoadAwareScorer:
                         estimated_memory_pct,
                         min_app_count,
                         max_app_count,
+                        workload_role_key,
+                        min_workload_role_count,
+                        max_workload_role_count,
                     ),
                     estimated_cpu_pct=estimated_cpu_pct,
                     estimated_memory_pct=estimated_memory_pct,
@@ -135,12 +145,29 @@ class LoadAwareScorer:
         estimated_memory_pct: float,
         min_app_count: int,
         max_app_count: int,
+        workload_role_key: tuple,
+        min_workload_role_count: int,
+        max_workload_role_count: int,
     ) -> float:
         weights = self.cfg.weights
 
         cpu_idle = 100.0 - clamp(estimated_cpu_pct, 0.0, 100.0)
         memory_idle = 100.0 - clamp(estimated_memory_pct, 0.0, 100.0)
         app_spread = self._app_spread_score(node, app_id, min_app_count, max_app_count)
+        workload_role_spread = self._workload_role_spread_score(
+            node,
+            workload_role_key,
+            min_workload_role_count,
+            max_workload_role_count,
+        )
+        spread = self._combined_spread_score(
+            app_spread,
+            workload_role_spread,
+            min_app_count,
+            max_app_count,
+            min_workload_role_count,
+            max_workload_role_count,
+        )
         request_headroom = self._request_headroom_score(node)
         stability = self._stability_score(estimated_cpu_pct, estimated_memory_pct)
         node_type = 100.0 if not requested_node_type or requested_node_type == node.node_type else 0.0
@@ -148,7 +175,7 @@ class LoadAwareScorer:
         return (
             weights.cpu_idle * cpu_idle
             + weights.memory_idle * memory_idle
-            + weights.app_spread * app_spread
+            + weights.app_spread * spread
             + weights.request_headroom * request_headroom
             + weights.stability * stability
             + weights.node_type * node_type
@@ -163,6 +190,37 @@ class LoadAwareScorer:
         if max_app_count == min_app_count:
             return 100.0
         return 100.0 * (max_app_count - count) / (max_app_count - min_app_count)
+
+    def _workload_role_spread_score(
+        self,
+        node: NodeInfo,
+        workload_role_key: tuple,
+        min_count: int,
+        max_count: int,
+    ) -> float:
+        count = node.workload_role_counts.get(workload_role_key, 0)
+        if max_count == min_count:
+            return 100.0
+        return 100.0 * (max_count - count) / (max_count - min_count)
+
+    def _combined_spread_score(
+        self,
+        app_spread: float,
+        workload_role_spread: float,
+        min_app_count: int,
+        max_app_count: int,
+        min_workload_role_count: int,
+        max_workload_role_count: int,
+    ) -> float:
+        app_has_signal = max_app_count != min_app_count
+        workload_role_has_signal = max_workload_role_count != min_workload_role_count
+        if app_has_signal and workload_role_has_signal:
+            return 0.7 * app_spread + 0.3 * workload_role_spread
+        if app_has_signal:
+            return app_spread
+        if workload_role_has_signal:
+            return workload_role_spread
+        return 100.0
 
     def _request_headroom_score(self, node: NodeInfo) -> float:
         cpu = 100.0 - clamp(node.request_cpu_pct(), 0.0, 100.0)

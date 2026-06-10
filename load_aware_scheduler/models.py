@@ -62,6 +62,7 @@ class NodeInfo:
     actual_cpu_pct: Optional[float] = None
     actual_memory_pct: Optional[float] = None
     app_counts: Dict[str, int] = field(default_factory=dict)
+    workload_role_counts: Dict[Tuple[str, str], int] = field(default_factory=dict)
     node_type: str = ""
 
     def request_cpu_pct(self) -> float:
@@ -82,11 +83,21 @@ class NodeInfo:
             return self.actual_memory_pct
         return self.request_memory_pct()
 
-    def assume(self, app_id: str, cpu_cores: float, memory_bytes: int) -> None:
+    def assume(
+        self,
+        app_id: str,
+        workload: str,
+        role: str,
+        cpu_cores: float,
+        memory_bytes: int,
+    ) -> None:
         self.requested_cpu_cores += cpu_cores
         self.requested_memory_bytes += memory_bytes
         if app_id:
             self.app_counts[app_id] = self.app_counts.get(app_id, 0) + 1
+        if workload or role:
+            key = (workload, role)
+            self.workload_role_counts[key] = self.workload_role_counts.get(key, 0) + 1
 
 
 @dataclass
@@ -106,7 +117,13 @@ class ClusterSnapshot:
     def assume(self, node_name: str, identity: PodIdentity, request: ResourceRequest) -> None:
         node = self.nodes.get(node_name)
         if node:
-            node.assume(identity.app_id, request.cpu_cores, request.memory_bytes)
+            node.assume(
+                identity.app_id,
+                identity.workload,
+                identity.role,
+                request.cpu_cores,
+                request.memory_bytes,
+            )
 
 
 @dataclass

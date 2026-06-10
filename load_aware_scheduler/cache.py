@@ -75,6 +75,10 @@ class ClusterCache:
             node.requested_memory_bytes += request.memory_bytes
             if identity.app_id:
                 node.app_counts[identity.app_id] = node.app_counts.get(identity.app_id, 0) + 1
+            workload_role_key = (identity.workload, identity.role)
+            node.workload_role_counts[workload_role_key] = (
+                node.workload_role_counts.get(workload_role_key, 0) + 1
+            )
 
             profile = profiles[identity.profile_key]
             if usage.cpu_cores is not None:

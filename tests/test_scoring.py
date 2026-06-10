@@ -131,6 +131,75 @@ class ScoringTest(unittest.TestCase):
         self.assertAlmostEqual(scores[0].estimated_cpu_pct, 10.0)
         self.assertAlmostEqual(scores[0].estimated_memory_pct, 28.0, places=1)
 
+    def test_new_app_falls_back_to_workload_role_spread(self):
+        cfg = SchedulerConfig.from_env()
+        pod = ns(
+            metadata=ns(
+                namespace="default",
+                name="flink-tm-new",
+                labels={
+                    "bigdata/workload": "flink",
+                    "bigdata/role": "taskmanager",
+                    "bigdata/app-id": "brand-new-app",
+                },
+                annotations={},
+                owner_references=[],
+            ),
+            spec=ns(
+                containers=[
+                    ns(
+                        resources=ns(
+                            requests={
+                                "cpu": "1",
+                                "memory": "1Gi",
+                            },
+                            limits={
+                                "cpu": "2",
+                                "memory": "2Gi",
+                            },
+                        )
+                    )
+                ],
+                init_containers=[],
+                node_selector={},
+                affinity=None,
+                tolerations=[],
+            ),
+        )
+        crowded = NodeInfo(
+            name="crowded",
+            labels={},
+            taints=[],
+            ready=True,
+            unschedulable=False,
+            allocatable_cpu_cores=10,
+            allocatable_memory_bytes=10 * 1024 * 1024 * 1024,
+            actual_cpu_pct=20,
+            actual_memory_pct=20,
+            workload_role_counts={("flink", "taskmanager"): 10},
+        )
+        sparse = NodeInfo(
+            name="sparse",
+            labels={},
+            taints=[],
+            ready=True,
+            unschedulable=False,
+            allocatable_cpu_cores=10,
+            allocatable_memory_bytes=10 * 1024 * 1024 * 1024,
+            actual_cpu_pct=20,
+            actual_memory_pct=20,
+            workload_role_counts={("flink", "taskmanager"): 1},
+        )
+        snapshot = ClusterSnapshot(
+            nodes={"crowded": crowded, "sparse": sparse},
+            profiles={},
+            metrics=MetricsSnapshot(),
+        )
+
+        scores, _ = LoadAwareScorer(cfg).score_pod(pod, snapshot)
+
+        self.assertEqual(scores[0].node.name, "sparse")
+
 
 if __name__ == "__main__":
     unittest.main()

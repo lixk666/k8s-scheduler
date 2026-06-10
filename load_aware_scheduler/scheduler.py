@@ -190,6 +190,8 @@ class LoadAwareScheduler:
         limit = self.cfg.log_node_score_limit
         visible_scores = scores[:limit] if limit > 0 else scores
         score_lines = []
+        identity = pod_identity(pod, self.cfg)
+        workload_role_key = (identity.workload, identity.role)
         for rank, item in enumerate(visible_scores, start=1):
             node = item.node
             score_lines.append(
@@ -200,7 +202,8 @@ class LoadAwareScheduler:
                     "actual_cpu={actual_cpu} actual_memory={actual_memory} "
                     "request_cpu={request_cpu:.1f}% "
                     "request_memory={request_memory:.1f}% "
-                    "app_count={app_count}"
+                    "app_count={app_count} "
+                    "role_count={role_count}"
                 ).format(
                     rank=rank,
                     node=node.name,
@@ -211,10 +214,8 @@ class LoadAwareScheduler:
                     actual_memory=self._format_pct(node.actual_memory_pct),
                     request_cpu=node.request_cpu_pct(),
                     request_memory=node.request_memory_pct(),
-                    app_count=node.app_counts.get(
-                        pod_identity(pod, self.cfg).app_id,
-                        0,
-                    ),
+                    app_count=node.app_counts.get(identity.app_id, 0),
+                    role_count=node.workload_role_counts.get(workload_role_key, 0),
                 )
             )
 
