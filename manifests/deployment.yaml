@@ -18,7 +18,7 @@ spec:
       serviceAccountName: load-aware-scheduler
       containers:
         - name: scheduler
-          image: 10.14.2.6:8091/bigdata/load-aware-scheduler:v0.1.7
+          image: 10.14.2.6:8091/bigdata/load-aware-scheduler:v0.1.8
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

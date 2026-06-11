@@ -476,6 +476,22 @@ JSON endpoint：
 /healthz
 ```
 
+看板功能：
+
+- 顶部汇总就绪节点、平均基础分、平均 CPU、平均内存、高风险节点和最近调度记录数。
+- 支持按节点名、node type、风险原因搜索。
+- 支持按压力状态过滤：`Normal`、`Warning`、`Critical`、`Blocked`。
+- 支持按基础分、CPU、内存、Pod 数、request 压力排序。
+- 支持按 role 过滤调度记录，例如 `taskmanager`、`jobmanager`、`executor`、`driver`。
+- 节点表点击某一行后，会展示该节点详情、风险原因和 `workload/role` 分布。
+- 最近调度评分会展示候选节点的 score、预估 CPU/内存、同 app 数量和同 role 数量。
+
+预览图：
+
+```text
+artifacts/dashboard-preview.png
+```
+
 看板中有两类分数：
 
 ### 基础分
@@ -570,7 +586,7 @@ PROM_POD_MEMORY_QUERY
 ```bash
 docker buildx build \
   --platform linux/amd64 \
-  -t 10.14.2.6:8091/bigdata/load-aware-scheduler:v0.1.7 \
+  -t 10.14.2.6:8091/bigdata/load-aware-scheduler:v0.1.8 \
   --push \
   .
 ```
